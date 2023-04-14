@@ -10,9 +10,23 @@ ADDR = (IP, PORT)
 SIZE = 1024
 FORMAT = "utf-8"
 
+class Transaction:
+   def __init__(self, sender = None, receiver = None, amount = None):
+      self.sender = sender
+      self.receiver = receiver
+      self.amount = amount
+
+class Block:
+    def __init__(self, transaction = None):
+        self.transaction = transaction
+        self.next = None
+        
+class Blockchain:
+   def __init__(self):
+      self.head = None
+
 def parse_client_request(handle, request):
     split_request = request.split()
-
     if (split_request[0] == "Balance" and len(split_request) == 2):
         client = int(split_request[1])
         if (1 <= client <= 3):
@@ -37,7 +51,7 @@ def handle_client_request(parsed_request):
         if (transfer_request != 0):
             return "Success"
         else:
-            return "Insufficent Balance"
+            return "Insufficient Balance"
     
     return "Error Handling Request"
 
