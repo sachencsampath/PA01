@@ -30,7 +30,11 @@ class Block:
 
 def parse_client_request(handle, request):
     split_request = request.split()
-    if (len(split_request) == 2 and split_request[0] == "Balance"):
+    
+    if (request == "Exit"):
+        return "E"
+    
+    elif (len(split_request) == 2 and split_request[0] == "Balance"):
         if (len(split_request[1]) == 2 and split_request[1].startswith("P") and split_request[1][1].isdigit()):
             client = int(split_request[1][1])
             if (1 <= client <= 3):
@@ -43,6 +47,8 @@ def parse_client_request(handle, request):
                 if (len(split_request[2]) >= 2 and split_request[2].startswith("$") and split_request[2][1:].isdigit()):
                     amount = int(split_request[2][1:])
                     return "T", handle, receiver, amount
+    elif (len(split_request) == 2 and split_request[0] == "Wait" and split_request[1].isdigit()):
+        return "W", split_request[1]
     return 0
 
 def handle_client_request(parsed_request):
@@ -51,7 +57,10 @@ def handle_client_request(parsed_request):
     
     command = parsed_request[0]
     
-    if command == "B":
+    if (command == "E"):
+        return "Exit"
+    
+    elif command == "B":
         return f"${balance_request(parsed_request[1])}"
     
     elif command == "T":
@@ -59,6 +68,9 @@ def handle_client_request(parsed_request):
             return "Success"
         else:
             return "Insufficient Balance"
+    
+    elif command == "W":
+        return str(parsed_request[1])
     
     return "Error Handling Request"
 
@@ -78,14 +90,14 @@ def transfer_request(sender, receiver, amount):
     if (balance_request(sender) >= amount):
         if (Blockchain):    
             previous_block = Blockchain[-1]
-            hash = bin(int(sha256((previous_block.hash + previous_block.get_transaction() + str(previous_block.nonce)).encode('utf-8')).hexdigest(), 16))[2:].zfill(256)
+            hash = compute_hash(previous_block.hash, previous_block.get_transaction(), previous_block.nonce)
         else:
             hash = "".zfill(256)
 
         block = Block(sender = sender, receiver = receiver, amount = amount, hash = hash)
         
         nonce = 0
-        while (bin(int(sha256((hash + block.get_transaction() + str(nonce)).encode('utf-8')).hexdigest(), 16))[2:].zfill(256)[:2] != "00"):
+        while (compute_hash(hash, block.get_transaction(), nonce)[:2] != "00"):
             nonce += 1
         block.nonce = nonce
         
@@ -93,14 +105,19 @@ def transfer_request(sender, receiver, amount):
         return 1
     else:
         return 0
+    
+def compute_hash(hash, transaction, nonce):
+    return bin(int(sha256((hash + transaction + str(nonce)).encode('utf-8')).hexdigest(), 16))[2:].zfill(256)
 
 def client_request_handler(conn, addr, handle):
-
     while True:
         request = conn.recv(SIZE).decode(FORMAT)
         parsed_request = parse_client_request(handle, request)
         response = handle_client_request(parsed_request)
         conn.send(response.encode(FORMAT))
+        
+        if(response == "Exit"):
+            return
         
 def client_connection_handler(server):
     while True:
